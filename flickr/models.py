@@ -104,9 +104,8 @@ class PhotoManager(models.Manager):
     def public(self, *args, **kwargs):
         return self.visible(ispublic=1, *args, **kwargs)
     
-    def _prepare_data(self, info, sizes, flickr_user=None, exif=None, geo=None):
+    def _prepare_data(self, info, sizes=None, flickr_user=None, exif=None, geo=None):
         photo = bunchify(info['photo'])
-        size_json = bunchify(sizes['sizes']['size'])
         photo_data = {
                   'flickr_id': photo.id, 'server': photo.server, 
                   'secret': photo.secret, 'originalsecret': getattr(photo, 'originalsecret', ''), 'farm': photo.farm,
@@ -121,13 +120,15 @@ class PhotoManager(models.Manager):
                   }
         if flickr_user:
             photo_data['user'] = flickr_user
-        size_label_conv = {'Square': 'square', 'Thumbnail': 'thumb', 'Small': 'small', 'Medium 640': 'medium', 'Large': 'large', 'Original': 'ori',}
-        for size in size_json:
-            if size.label is 'Original':
-                label = size_label_conv[size.label]
-                photo_data = dict(photo_data.items() + {
-                                label+'_width': size.width, label+'_height': size.height,
-                                }.items())
+            
+        if sizes:
+            size_json = bunchify(sizes['sizes']['size'])
+            ref_size = size_json[-1]
+            photo_data['ratio'] = float(ref_size.width) / float(ref_size.height)
+            original = next((item for item in size_json if item.label=='Original'), None)
+            if original:
+                photo_data['ori_width'] = original.width
+                photo_data['ori_height'] = original.height
         for url in photo.urls.url:
             if url.type == 'photopage':
                 photo_data['url_page'] = unslash(url._content)
@@ -204,7 +205,7 @@ class Photo(FlickrModel):
     """http://www.flickr.com/services/api/explore/flickr.photos.getSizes
         original width and height is all the data needed to compute other sizes.
     """
-
+    ratio = models.FloatField()
     ori_width = models.PositiveIntegerField(null=True, blank=True)
     ori_height = models.PositiveIntegerField(null=True, blank=True)
     
@@ -250,18 +251,23 @@ class Photo(FlickrModel):
         return build_photo_url(self.farm, self.server, self.flickr_id, self.secret, FLICKR_PHOTO_SIZES[size])
     
     def get_size(self, size):
-        width = FLICKR_PHOTO_SIZES[size].get('width', 0)
-        height = FLICKR_PHOTO_SIZES[size].get('height', 0)
+        width = FLICKR_PHOTO_SIZES[size].get('width', None)
+        height = FLICKR_PHOTO_SIZES[size].get('height', None)
         if not width or not height:
-            if self.ori_width and self.ori_height:
-                ratio = self.ori_width/self.ori_height
-                if ratio>=1:
-                    width = FLICKR_PHOTO_SIZES[size]['longest']
-                    height = int(width/ratio)
-                else:
-                    height = FLICKR_PHOTO_SIZES[size]['longest']
-                    width = int(ratio*height)
+            longest = FLICKR_PHOTO_SIZES[size]['longest']
+            if self.ratio>=1:
+                width = longest
+                height = int(width/ratio)
+            else:
+                height = longest
+                width = int(ratio*height)
         return width, height
+    
+    def get_ori_source(self):
+        return build_photo_url(self.farm, self.server, self.flickr_id, self.originalsecret, FLICKR_PHOTO_SIZES[size], self.originalformat)
+    
+    def get_ori_size(self):
+        return self.ori_width, self.ori_height
     
     """because 'Model.get_previous_by_FOO(**kwargs) For every DateField and DateTimeField that does not have null=True'""" 
     def get_next_by_date_posted(self):
