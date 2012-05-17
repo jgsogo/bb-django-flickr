@@ -13,14 +13,14 @@ References:
 
 FLICKR_PHOTO_URL = 'http://farm%(farm-id)s.staticflickr.com/%(server-id)s/%(photo-id)s_%(secret)s%(size_suffix)s.%(format)s'
 FLICKR_SHORT_PHOTO_URL = 'http://flic.kr/p/%(short-photo-id)s'
+FLICKR_URL_PAGE = 'http://www.flickr.com/photos/%(user-id)s/%(photo-id)s/'
+FLICKR_PHOTOS_URL = 'http://www.flickr.com/photos/%(user-id)s/'
+FLICKR_PROFILE_URL = 'http://www.flickr.com/people/%(user-id)s/'
+FLICKR_BUDDY_ICON = 'http://farm%(icon-farm)s.staticflickr.com/%(icon-server)s/buddyicons/%(nsid)s.jpg'
+FLICKR_BUDDY_ICON_DEFAULT = 'http://www.flickr.com/images/buddyicon.gif'
 
 """ Photo urls
 """
-FLICKR_PHOTO_ORIGINALFORMAT = (
-                            (0, 'jpg'),
-                            (1, 'gif'),
-                            (2, 'png'),
-                            )
 
 FLICKR_PHOTO_SIZES = {
     'Square' : {

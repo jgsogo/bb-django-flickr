@@ -9,7 +9,9 @@ from django.core.urlresolvers import reverse
 from django.db import models
 from django.utils.timezone import now
 from taggit.managers import TaggableManager
-from flickr.flickr_spec import FLICKR_PHOTO_ORIGINALFORMAT, FLICKR_PHOTO_SIZES, build_photo_url
+from flickr.flickr_spec import build_photo_url,\
+                                FLICKR_PHOTO_SIZES, FLICKR_URL_PAGE, FLICKR_PHOTOS_URL,\
+                                FLICKR_PROFILE_URL, FLICKR_BUDDY_ICON, FLICKR_BUDDY_ICON_DEFAULT
 
 def ts_to_dt(timestamp):
     return datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S')
@@ -25,9 +27,8 @@ class FlickrUserManager(models.Manager):
         user_data = {'username': person.username._content, 'realname': person.realname._content,
                      'flickr_id': person.id, 'nsid': person.nsid, 
                      'iconserver': person.iconserver, 'iconfarm': person.iconfarm, 'path_alias': person.path_alias,
-                     'photosurl': unslash(person.photosurl._content),
-                     'profileurl': unslash(person.profileurl._content),
                      'mobileurl': unslash(person.mobileurl._content), 
+                     'ispro' : person.ispro,
                      'last_sync': now(),                    
                      }
         return self.filter(pk=pk).update(**dict(user_data.items() + kwargs.items()))        
@@ -36,15 +37,14 @@ class FlickrUserManager(models.Manager):
 class FlickrUser(models.Model):
     user = models.OneToOneField(User)
     flickr_id = models.CharField(max_length=50, null=True, blank=True)
-    nsid = models.CharField(max_length=32, null=True, blank=True)
+    nsid = models.CharField(max_length=32)
     username = models.CharField(max_length=64, null=True, blank=True)
     realname = models.CharField(max_length=64, null=True, blank=True)
-    photosurl = models.URLField(max_length=255, null=True, blank=True)
-    profileurl = models.URLField(max_length=255, null=True, blank=True)
     mobileurl = models.URLField(max_length=255, null=True, blank=True)    
     iconserver = models.CharField(max_length=4, null=True, blank=True)
     iconfarm = models.PositiveSmallIntegerField(null=True, blank=True)
     path_alias = models.CharField(max_length=32, null=True, blank=True)
+    ispro = models.BooleanField()
     
     token = models.CharField(max_length=128, null=True, blank=True)
     perms = models.CharField(max_length=32, null=True, blank=True)
@@ -57,6 +57,21 @@ class FlickrUser(models.Model):
         
     def __unicode__(self):
         return u"%s" % self.username
+    
+    def get_photosurl(self):
+        return FLICKR_PHOTOS_URL % {'user-id': self.nsid}
+    photosurl = property(get_photosurl)
+
+    def get_profileurl(self):
+        return FLICKR_PROFILE_URL % {'user-id': self.nsid}
+    profileurl = property(get_profileurl)
+
+    def get_buddy_icon(self):
+        if self.iconserver > 0:
+            return FLICKR_BUDDY_ICON % {'icon-farm':self.iconfarm, 'icon-server':self.iconserver, 'nsid':self.nsid}
+        else:
+            return FLICKR_BUDDY_ICON_DEFAULT
+    buddyicon = property(get_buddy_icon)
     
 
 class FlickrModel(models.Model):
@@ -129,11 +144,7 @@ class PhotoManager(models.Manager):
             if original:
                 photo_data['ori_width'] = original.width
                 photo_data['ori_height'] = original.height
-        for url in photo.urls.url:
-            if url.type == 'photopage':
-                photo_data['url_page'] = unslash(url._content)
         if exif:
-            photo_data['exif'] = str(exif)
             try:
                 photo_data['exif_camera'] = exif['photo']['camera']
                 for e in bunchify(exif['photo']['exif']):
@@ -197,10 +208,7 @@ class Photo(FlickrModel):
     date_taken_granularity = models.PositiveSmallIntegerField(null=True, blank=True)
     date_updated = models.DateTimeField(null=True, blank=True)
     
-    url_page = models.URLField(max_length=255, null=True, blank=True)
     tags = TaggableManager(blank=True)
-    
-    slug = models.SlugField(max_length=255, null=True, blank=True)
     
     """http://www.flickr.com/services/api/explore/flickr.photos.getSizes
         original width and height is all the data needed to compute other sizes.
@@ -210,9 +218,8 @@ class Photo(FlickrModel):
     ori_height = models.PositiveIntegerField(null=True, blank=True)
     
     """http://www.flickr.com/services/api/explore/flickr.photos.getExif
-    Lots of data varying type and values, let's just put'em (json string in exif) there and we'll think later."""
+    Lots of data varying type and values, maybe not fully implemented."""
     
-    exif = models.TextField(null=True, blank=True)
     exif_camera = models.CharField(max_length=50, null=True, blank=True)
     exif_exposure = models.CharField(max_length=10, null=True, blank=True)
     exif_aperture = models.CharField(max_length=10, null=True, blank=True)
@@ -245,11 +252,20 @@ class Photo(FlickrModel):
 
     def get_absolute_url(self):
         return reverse('flickr_photo', args=[self.flickr_id,])
+
+    """ url_page """
+    def get_url_page(self):
+        return FLICKR_URL_PAGE % {'user-id': self.user.nsid, 'photo-id':self.flickr_id}
+    url_page = property(get_url_page)
     
+    def get_short_url(self):
+        return FLICKR_SHORT_PHOTO_URL % { 'short-photo-id' : b58encode(self.flickr_id)}
+    short_url = property(get_short_url)
+
     """ Sizes (source, width and height) can be computed from info already stored in the database """
     def get_source(self, size):
         return build_photo_url(self.farm, self.server, self.flickr_id, self.secret, FLICKR_PHOTO_SIZES[size])
-    
+
     def get_size(self, size):
         width = FLICKR_PHOTO_SIZES[size].get('width', None)
         height = FLICKR_PHOTO_SIZES[size].get('height', None)
