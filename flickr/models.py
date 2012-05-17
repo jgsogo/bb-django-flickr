@@ -9,7 +9,7 @@ from django.core.urlresolvers import reverse
 from django.db import models
 from django.utils.timezone import now
 from taggit.managers import TaggableManager
-
+from flickr.flickr_spec import FLICKR_PHOTO_ORIGINALFORMAT, FLICKR_PHOTO_SIZES, build_photo_url
 
 def ts_to_dt(timestamp):
     return datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S')
@@ -95,7 +95,7 @@ class BigIntegerField(models.IntegerField):
             db_type = 'bigint'
         return db_type
 
-        
+
 class PhotoManager(models.Manager):
     
     def visible(self, *args, **kwargs):
@@ -110,6 +110,7 @@ class PhotoManager(models.Manager):
         photo_data = {
                   'flickr_id': photo.id, 'server': photo.server, 
                   'secret': photo.secret, 'originalsecret': getattr(photo, 'originalsecret', ''), 'farm': photo.farm,
+                  'originalformat': getattr(photo, 'originalformat', ''),
                   'title': photo.title._content, 'description': photo.description._content, 'date_taken': photo.dates.taken,
                   'date_posted': ts_to_dt(photo.dates.posted), 'date_updated': ts_to_dt(photo.dates.lastupdate),
                   'date_taken_granularity':  photo.dates.takengranularity,
@@ -122,11 +123,10 @@ class PhotoManager(models.Manager):
             photo_data['user'] = flickr_user
         size_label_conv = {'Square': 'square', 'Thumbnail': 'thumb', 'Small': 'small', 'Medium 640': 'medium', 'Large': 'large', 'Original': 'ori',}
         for size in size_json:
-            if size.label in size_label_conv.keys():
+            if size.label is 'Original':
                 label = size_label_conv[size.label]
                 photo_data = dict(photo_data.items() + {
-                                label+'_width': size.width, label+'_height': size.height, 
-                                label+'_source': size.source, label+'_url': unslash(size.url),
+                                label+'_width': size.width, label+'_height': size.height,
                                 }.items())
         for url in photo.urls.url:
             if url.type == 'photopage':
@@ -176,8 +176,7 @@ class PhotoManager(models.Manager):
     
     def create_or_update_from_json(self, flickr_user, info, sizes, exif=None, geo=None, **kwargs):
         """Pretty self explanatory"""
-        
-        
+
 
 class Photo(FlickrModel):
     
@@ -187,6 +186,7 @@ class Photo(FlickrModel):
     farm = models.PositiveSmallIntegerField()       
     secret = models.CharField(max_length=10)
     originalsecret = models.CharField(max_length=10)
+    originalformat = models.CharField(max_length=4) # TBD: choices?
     
     title = models.CharField(max_length=255, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
@@ -201,37 +201,12 @@ class Photo(FlickrModel):
     
     slug = models.SlugField(max_length=255, null=True, blank=True)
     
-    """http://www.flickr.com/services/api/explore/flickr.photos.getSizes"""
-    
-    square_width = models.PositiveIntegerField(null=True, blank=True)
-    square_height = models.PositiveIntegerField(null=True, blank=True)
-    square_source = models.URLField(max_length=255, null=True, blank=True)
-    square_url = models.URLField(max_length=255, null=True, blank=True)    
-    
-    thumb_width = models.PositiveIntegerField(null=True, blank=True)
-    thumb_height = models.PositiveIntegerField(null=True, blank=True)
-    thumb_source = models.URLField(max_length=255, null=True, blank=True)
-    thumb_url = models.URLField(max_length=255, null=True, blank=True)
-    
-    small_width = models.PositiveIntegerField(null=True, blank=True)
-    small_height = models.PositiveIntegerField(null=True, blank=True)
-    small_source = models.URLField(max_length=255, null=True, blank=True)
-    small_url = models.URLField(max_length=255, null=True, blank=True)
-    
-    medium_width = models.PositiveIntegerField(null=True, blank=True)
-    medium_height = models.PositiveIntegerField(null=True, blank=True)
-    medium_source = models.URLField(max_length=255, null=True, blank=True)
-    medium_url = models.URLField(max_length=255, null=True, blank=True)
-    
-    large_width = models.PositiveIntegerField(null=True, blank=True)
-    large_height = models.PositiveIntegerField(null=True, blank=True)
-    large_source = models.URLField(max_length=255, null=True, blank=True)
-    large_url = models.URLField(max_length=255, null=True, blank=True)
-    
+    """http://www.flickr.com/services/api/explore/flickr.photos.getSizes
+        original width and height is all the data needed to compute other sizes.
+    """
+
     ori_width = models.PositiveIntegerField(null=True, blank=True)
     ori_height = models.PositiveIntegerField(null=True, blank=True)
-    ori_source = models.URLField(max_length=255, null=True, blank=True)
-    ori_url = models.URLField(max_length=255, null=True, blank=True)
     
     """http://www.flickr.com/services/api/explore/flickr.photos.getExif
     Lots of data varying type and values, let's just put'em (json string in exif) there and we'll think later."""
@@ -270,6 +245,23 @@ class Photo(FlickrModel):
     def get_absolute_url(self):
         return reverse('flickr_photo', args=[self.flickr_id,])
     
+    """ Sizes (source, width and height) can be computed from info already stored in the database """
+    def get_source(self, size):
+        return build_photo_url(self.farm, self.server, self.flickr_id, self.secret, FLICKR_PHOTO_SIZES[size])
+    
+    def get_size(self, size):
+        width = FLICKR_PHOTO_SIZES[size].get('width', 0)
+        height = FLICKR_PHOTO_SIZES[size].get('height', 0)
+        if not width or not height:
+            if self.ori_width and self.ori_height:
+                ratio = self.ori_width/self.ori_height
+                if ratio>=1:
+                    width = FLICKR_PHOTO_SIZES[size]['longest']
+                    height = int(width/ratio)
+                else:
+                    height = FLICKR_PHOTO_SIZES[size]['longest']
+                    width = int(ratio*height)
+        return width, height
     
     """because 'Model.get_previous_by_FOO(**kwargs) For every DateField and DateTimeField that does not have null=True'""" 
     def get_next_by_date_posted(self):
