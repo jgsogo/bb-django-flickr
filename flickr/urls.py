@@ -11,9 +11,10 @@ urlpatterns = patterns('',
 
     url(r'^method/(?P<method>.*)/$', "flickr.views.method_call", name="flickr_method"),
     url(r'^set/(?P<flickr_id>.*)/$', "flickr.views.photoset", name="flickr_photoset"),
-    url(r'^photo/(?P<flickr_id>.*)/$', "flickr.views.photo", name="flickr_photo"),
+    url(r'^photo/(?P<flickr_id>[^/]*)/$', "flickr.views.photo", name="flickr_photo"),
     url(r'^$', "flickr.views.index", name="flickr_index"),
 
+    # pass through image proxy
     url(r'^photo/(?P<flickr_id>\d+)/link/(?P<size_label>\w+)', PhotoSource.as_view(), name="flickr_photo_safe"),
 )
 
