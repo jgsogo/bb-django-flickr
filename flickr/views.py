@@ -7,6 +7,7 @@ from django.shortcuts import render_to_response, get_object_or_404
 from django.template.context import RequestContext
 from django.utils import simplejson
 from django.views.generic.list_detail import object_list
+from django.views.generic import View
 from flickr.api import FlickrApi, FlickrUnauthorizedCall
 from flickr.models import FlickrUser, Photo, PhotoSet
 from flickr.shortcuts import get_token_for_user
@@ -51,7 +52,7 @@ def oauth_access(request):
         fs.save()
         return HttpResponseRedirect(reverse('flickr_auth'))
     raise Exception, 'Ups! No data...'
-    
+
 
 @login_required
 def auth(request):
@@ -60,9 +61,9 @@ def auth(request):
     token = get_token_for_user(request.user)
     if not token:
         frob = request.GET.get('frob', None)
-        if frob:        
+        if frob:
             data = api.frob2token(frob)
-            if data:            
+            if data:
                 fs, created = FlickrUser.objects.get_or_create(user=request.user)
                 token, perms = data.rsp.auth.token.text, data.rsp.auth.perms.text
                 fs.token, fs.nsid, fs.username, fs.full_name, fs.perms = token, data.rsp.auth.user.nsid, data.rsp.auth.user.username, data.rsp.auth.user.fullname, perms
@@ -74,7 +75,7 @@ def auth(request):
                 fs = FlickrUser.objects.get(user=request.user)
                 token = fs.token
             except FlickrUser.DoesNotExist:
-                auth_url = api.auth_url(PERMS) 
+                auth_url = api.auth_url(PERMS)
                 return render_to_response("flickr/auth.html", { 'auth_url': auth_url }, context_instance=RequestContext(request))
     else:
         fs = FlickrUser.objects.get(user=request.user)
@@ -85,9 +86,9 @@ def auth(request):
 def index(request, user_id=1):
     photos = Photo.objects.public()
     photosets = PhotoSet.objects.all()
-    return object_list(request, 
+    return object_list(request,
         queryset = photos,
-        paginate_by = 10, 
+        paginate_by = 10,
         extra_context = { 'photosets': photosets },
         template_object_name = 'photo',
         template_name = 'flickr/index.html'
@@ -100,27 +101,46 @@ def photo(request, flickr_id):
     except Photo.DoesNotExist:
         photo = get_object_or_404(Photo, pk=flickr_id)
     return render_to_response("flickr/photo_page.html", { 'photo': photo }, context_instance=RequestContext(request))
-        
+
 
 def photoset(request, flickr_id):
     photoset = get_object_or_404(PhotoSet, flickr_id=flickr_id)
     photos = Photo.objects.public(photoset__id__in=[photoset.id,])
     photosets = PhotoSet.objects.all()
-    return object_list(request, 
+    return object_list(request,
         queryset = photos,
-        paginate_by = 10, 
+        paginate_by = 10,
         extra_context = { 'photoset': photoset, 'photosets': photosets },
         template_object_name = 'photo',
         template_name = 'flickr/index.html'
         )
-       
+
 
 def method_call(request, method):
     api = FlickrApi(FLICKR_KEY, FLICKR_SECRET)
     if request.user.is_authenticated():
-        api.token = get_token_for_user(request.user)  
+        api.token = get_token_for_user(request.user)
         auth = True
     else:
-        auth = False    
+        auth = False
     data = api.get(method, auth=auth, photo_id='6110054503')
     return HttpResponse(simplejson.dumps(data))
+
+
+class PhotoSource(View):
+    """
+        Using Django as a Pass Through Image Proxy
+        http://menendez.com/blog/using-django-as-pass-through-image-proxy/
+    """
+    def get(self, request, *args, **kwargs):
+        try:
+            photo = Photo.objects.filter(flickr_id=self.kwargs['flickr_id'])[0]
+            # users, permissions, public, visible,...?
+            source_url = getattr(photo, '%s_url' % self.kwargs['size_label'])
+            contents = urllib2.urlopen(fq_url).read()
+            mimetype = mimetypes.guess_type(source_url)
+            response = HttpResponse(contents, mimetype=mimetype)
+            return response
+        except:
+            """ If photo is not found may return an 404 custom photo """
+
