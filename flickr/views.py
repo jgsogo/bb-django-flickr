@@ -145,28 +145,28 @@ class PhotoSource(View):
     def __init__(self, *args, **kwargs):
         super(PhotoSource, self).__init__(*args, **kwargs)
 
-    def pipeline(self, photo, request):
+    def pipeline(self, pipeline, photo, request):
         out = {}
-        if PIPELINE:
-            for name in PIPELINE:
-                mod_name, func_name = name.rsplit('.',1)
-                mod = import_module(mod_name)
-                func = getattr(mod, func_name, None)
-                if callable(func):
-                    result = func(photo, request, **out) or {}
-                    if isinstance(result, dict):
-                        out.update(result)
-                    else:
-                        return result
+        for name in pipeline:
+            mod_name, func_name = name.rsplit('.',1)
+            mod = import_module(mod_name)
+            func = getattr(mod, func_name, None)
+            if callable(func):
+                result = func(photo, request, **out) or {}
+                if isinstance(result, dict):
+                    out.update(result)
+                else:
+                    return result
         return out
 
     def get(self, request, *args, **kwargs):
         try:
             photo = Photo.objects.filter(flickr_id=self.kwargs['flickr_id'])[0]
 
-            out = self.pipeline(photo, request)
-            if not isinstance(out, dict):
-                return out
+            if PIPELINE:
+                out = self.pipeline(PIPELINE, photo, request)
+                if not isinstance(out, dict):
+                    return out
 
             # users, permissions, public, visible,...?
             source_url = getattr(photo, '%s_url' % self.kwargs['size_label'])
