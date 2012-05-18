@@ -11,7 +11,8 @@ from django.utils.timezone import now
 from taggit.managers import TaggableManager
 from flickr.flickr_spec import build_photo_url,\
                                 FLICKR_PHOTO_SIZES, FLICKR_URL_PAGE, FLICKR_PHOTOS_URL,\
-                                FLICKR_PROFILE_URL, FLICKR_BUDDY_ICON, FLICKR_BUDDY_ICON_DEFAULT
+                                FLICKR_PROFILE_URL, FLICKR_BUDDY_ICON, FLICKR_BUDDY_ICON_DEFAULT,\
+                                FLICKR_SHORT_PHOTO_URL, b58encode
 
 def ts_to_dt(timestamp):
     return datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S')
@@ -255,7 +256,7 @@ class Photo(FlickrModel):
     url_page = property(get_url_page)
 
     def get_short_url(self):
-        return FLICKR_SHORT_PHOTO_URL % { 'short-photo-id' : b58encode(self.flickr_id)}
+        return FLICKR_SHORT_PHOTO_URL % { 'short-photo-id' : b58encode(int(self.flickr_id))}
     short_url = property(get_short_url)
 
     """ Sizes (source, width and height) can be computed from info already stored in the database """
