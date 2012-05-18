@@ -274,14 +274,16 @@ class Photo(FlickrModel):
                 return flickr_size
         return None
 
-    def get_source(self, size):
+    def get_source(self, size, fall_to_ori=False):
         flickr_size = self.has_size(size)
         if flickr_size:
             return build_photo_url(self.farm, self.server, self.flickr_id, self.secret, flickr_size)
         else:
-            return self.get_ori_source()
+            if fall_to_ori:
+                return self.get_ori_source()
+            else: return None
 
-    def get_size(self, size):
+    def get_size(self, size, fall_to_ori=False):
         flickr_size = self.has_size(size)
         if flickr_size:
             width = flickr_size.get('width', None)
@@ -296,25 +298,34 @@ class Photo(FlickrModel):
                     width = int(self.ratio*height)
             return width, height
         else:
-            return self.get_ori_size()
+            if fall_to_ori:
+                return self.get_ori_size()
+            else: return None, None
 
-    def get_width(self, size):
-        width, height = self.get_size(size)
+    def get_width(self, size, fall_to_ori=False):
+        width, height = self.get_size(size, fall_to_ori)
         return width
-    def get_height(self, size):
-        width, height = self.get_size(size)
+    def get_height(self, size, fall_to_ori=False):
+        width, height = self.get_size(size, fall_to_ori)
         return height
 
     def get_ori_source(self):
         if self.originalsecret:
             return build_photo_url(self.farm, self.server, self.flickr_id, self.originalsecret, FLICKR_PHOTO_SIZES['Original'], self.originalformat)
         else: return None # return source for max_size?
+    ori_url = property(get_ori_source)
 
-
-    def get_ori_size(self):
+    def get_ori_width(self):
         if self.originalsecret:
-            return self.max_width, int(self.max_width/self.ratio)
-        else: return None,None # return sizes for max_size?
+            return self.max_width
+        else: return None # return sizes for max_size?
+    ori_width = property(get_ori_width)
+
+    def get_ori_height(self):
+        if self.originalsecret:
+            return int(self.max_width/self.ratio)
+        else: return None # return sizes for max_size?
+    ori_height = property(get_ori_height)
 
     """because 'Model.get_previous_by_FOO(**kwargs) For every DateField and DateTimeField that does not have null=True'"""
     def get_next_by_date_posted(self):

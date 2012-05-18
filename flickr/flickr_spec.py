@@ -60,7 +60,7 @@ FLICKR_PHOTO_SIZES = {
                 'longest' : 1024,
                 'suffix' : 'b',
                 },
-    'Original' : {  'label' : 'ori',
+    'Original' : {
                     'suffix' : 'o',
                 },
     }
