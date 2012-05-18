@@ -137,10 +137,9 @@ class PhotoSource(View):
             photo = Photo.objects.filter(flickr_id=self.kwargs['flickr_id'])[0]
             # users, permissions, public, visible,...?
             source_url = getattr(photo, '%s_url' % self.kwargs['size_label'])
-            contents = urllib2.urlopen(fq_url).read()
+            contents = urllib2.urlopen(source_url).read()
             mimetype = mimetypes.guess_type(source_url)
             response = HttpResponse(contents, mimetype=mimetype)
             return response
         except:
             """ If photo is not found may return an 404 custom photo """
-

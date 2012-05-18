@@ -14,7 +14,7 @@ urlpatterns = patterns('',
     url(r'^photo/(?P<flickr_id>.*)/$', "flickr.views.photo", name="flickr_photo"),
     url(r'^$', "flickr.views.index", name="flickr_index"),
 
-    url(r'^photo/(?P<flickr_id>\d+)/link/(?P<size_label>\w+)', PhotoSource.as_view(), name="photo_source"),
+    url(r'^photo/(?P<flickr_id>\d+)/link/(?P<size_label>\w+)', PhotoSource.as_view(), name="flickr_photo_safe"),
 )
 
 
