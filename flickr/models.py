@@ -290,23 +290,31 @@ class Photo(FlickrModel):
                 longest = flickr_size.get('longest', None)
                 if self.ratio>=1:
                     width = longest
-                    height = int(width/ratio)
+                    height = int(width/self.ratio)
                 else:
                     height = longest
-                    width = int(ratio*height)
+                    width = int(self.ratio*height)
             return width, height
         else:
             return self.get_ori_size()
 
+    def get_width(self, size):
+        width, height = self.get_size(size)
+        return width
+    def get_height(self, size):
+        width, height = self.get_size(size)
+        return height
+
     def get_ori_source(self):
         if self.originalsecret:
             return build_photo_url(self.farm, self.server, self.flickr_id, self.originalsecret, FLICKR_PHOTO_SIZES['Original'], self.originalformat)
-        else: return None
+        else: return None # return source for max_size?
+
 
     def get_ori_size(self):
         if self.originalsecret:
             return self.max_width, int(self.max_width/self.ratio)
-        else: return None,None
+        else: return None,None # return sizes for max_size?
 
     """because 'Model.get_previous_by_FOO(**kwargs) For every DateField and DateTimeField that does not have null=True'"""
     def get_next_by_date_posted(self):
@@ -355,7 +363,15 @@ class Photo(FlickrModel):
         except:
             pass
 
-
+"""
+Add properties to photo model in order to directly access useful data.
+"""
+for key,size in FLICKR_PHOTO_SIZES.items():
+    label = size.get('label', None)
+    if label:
+        setattr(Photo, '%s_url' %label, property( lambda self, key=key: self.get_source(key) ))
+        setattr(Photo, '%s_width' %label, property( lambda self, key=key: self.get_width(key) ))
+        setattr(Photo, '%s_height' %label, property( lambda self, key=key: self.get_height(key) ))
 
 
 class PhotoSetManager(models.Manager):

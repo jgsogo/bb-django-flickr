@@ -23,45 +23,45 @@ FLICKR_BUDDY_ICON_DEFAULT = 'http://www.flickr.com/images/buddyicon.gif'
 """
 
 FLICKR_PHOTO_SIZES = {
-    'Square' : {
+    'Square' : {'label' : 'square',
                 'width' : 75,
                 'height' : 75,
                 'suffix' : 's',
                 },
-    'Large Square' : {
-                'width' : 150,
-                'height' : 150,
-                'suffix' : 'q',
+    'Large Square' : {  'label' : 'largesquare',
+                        'width' : 150,
+                        'height' : 150,
+                        'suffix' : 'q',
+                        },
+    'Thumbnail' : { 'label' : 'thumb',
+                    'longest' : 100,
+                    'suffix' : 't',
                 },
-    'Thumbnail' : {
-                'longest' : 100,
-                'suffix' : 't',
-                },
-    'Small' : {
+    'Small' : { 'label' : 'small',
                 'longest' : 240,
                 'suffix' : 'm',
                 },
-    'Small 320' : {
-                'longest' : 320,
-                'suffix' : 'n',
+    'Small 320' : { 'label' : 'small320',
+                    'longest' : 320,
+                    'suffix' : 'n',
                 },
-    'Medium' : {
+    'Medium' : {'label' : 'medium',
                 'longest' : 500,
                 },
-    'Medium 640' : {
-                'longest' : 640,
-                'suffix' : 'z',
+    'Medium 640' : {'label' : 'medium640',
+                    'longest' : 640,
+                    'suffix' : 'z',
                 },
-    'Medium 800' : {
-                'longest' : 800,
-                'suffix' : 'c',
+    'Medium 800' : {'label' : 'medium800',
+                    'longest' : 800,
+                    'suffix' : 'c',
                 },
-    'Large' : {
+    'Large' : { 'label' : 'large',
                 'longest' : 1024,
                 'suffix' : 'b',
                 },
-    'Original' : {
-                'suffix' : 'o',
+    'Original' : {  'label' : 'ori',
+                    'suffix' : 'o',
                 },
     }
 
