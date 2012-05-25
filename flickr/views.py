@@ -1,6 +1,7 @@
 from bunch import bunchify
 import urllib2
 import mimetypes
+from django.core.cache import cache
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
@@ -168,11 +169,13 @@ class PhotoSource(View):
                 if not isinstance(out, dict):
                     return out
 
-            # users, permissions, public, visible,...?
             source_url = getattr(photo, '%s_url' % self.kwargs['size_label'])
-            contents = urllib2.urlopen(source_url).read()
-            mimetype = mimetypes.guess_type(source_url)
-            response = HttpResponse(contents, mimetype=mimetype)
+            response = cache.get(source_url)
+            if not response:
+                contents = urllib2.urlopen(source_url).read()
+                mimetype = mimetypes.guess_type(source_url)
+                response = HttpResponse(contents, mimetype=mimetype)
+                cache.set(soruce_url, response, 60*15)
             return response
         except FlickrNotFound:
             """ If photo is not found may return an 404 custom photo """
