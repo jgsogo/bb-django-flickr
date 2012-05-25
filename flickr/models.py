@@ -270,7 +270,7 @@ class Photo(FlickrModel):
         try:
             if size['label'] == 'ori':
                 return self.originalsecret != ''
-            # \todo Check if this photo has that size available ¿or not?
+            # \todo Check if this photo has that size available, or not? see: http://code.flickr.com/blog/2010/10/26/the-not-so-new-image-size-medium-640/
             # \todo If we have stored photo sizes in database, grab it from the database
             return True
         except:
@@ -295,7 +295,7 @@ class Photo(FlickrModel):
             if not width or not height:
                 longest = size.get('longest', None)
                 if not self.ori_width or not self.ori_height:
-                    # \todo What to do? Not enough info to compute
+                    # \todo What to do? Not enough info to compute, just we had stored horizontal/vertical alignment...
                     return None, None
                 ratio = float(self.ori_width) / float(self.ori_height)
                 if ratio >= 1:
