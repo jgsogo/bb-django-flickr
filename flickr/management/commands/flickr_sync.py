@@ -10,7 +10,7 @@ from flickr.shortcuts import get_all_photos, get_photo_details_jsons,\
 from optparse import make_option
 import datetime
 import time
-
+from flickr.use_cases import flickr_command_decorator
 
 class Command(BaseCommand):
 
@@ -24,9 +24,8 @@ class Command(BaseCommand):
         make_option('--days', '-d', action='store', dest='days', default=None,
             help='Sync photos from the last n days. Useful for cron jobs.'),
 
-        # Here for future reference
-        #make_option('--user', '-u', action='store', dest='user_id', default=1,
-        #    help='Sync for a particular user. Default is 1 (in most cases it\'s the admin and you\'re using it only for yourself).'),
+        make_option('--user', '-u', action='store', dest='user_id', default=1,
+            help='Sync for a particular user. Default is 1 (in most cases it\'s the admin and you\'re using it only for yourself).'),
 
         make_option('--nsid', action='store', dest='nsid',
             help='Sync for a particular flickr account.'),
@@ -73,24 +72,21 @@ set high value (200-500) for initial sync and big updates so we hit flickr less.
             raise CommandError, 'No FLICKR_SECRET in settings. %s' % self.help_text
         self.api = FlickrApi(self.FLICKR_KEY, self.FLICKR_SECRET)
 
-
-    def handle(self, *args, **options):
+    @flickr_command_decorator
+    def handle(self, add_accounts = [], *args, **options):
         t1 = time.time()
-        user_id = options.get('user_id', None)
         nsid = options.get('nsid', None)
         account = options.get('account', None)
 
         """ grab from database all FlickrAccounts matching command inputs """
-        user_id_accounts = FlickrAccount.objects.none()
         nsid_accounts = FlickrAccount.objects.none()
         account_accounts = FlickrAccount.objects.none()
-        if user_id:
-            """ Some use cases will have flickr_accounts related to django users """
         if nsid:
             nsid_accounts = FlickrAccount.objects.filter(nsid=nsid)
         if account:
             account_accounts = FlickrAccount.objects.filter(id=account)
-        flickr_accounts = list(chain(user_id_accounts, nsid_accounts, account_accounts))
+        flickr_accounts = list(chain(account_accounts, nsid_accounts, add_accounts))
+
         for flickr_account in flickr_accounts:
             self.handle_flickr_account(flickr_account, **options)
         t2 = time.time()

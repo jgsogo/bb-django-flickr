@@ -9,26 +9,27 @@ from django.utils import simplejson
 from django.views.generic.list_detail import object_list
 from flickr.api import FlickrApi, FlickrUnauthorizedCall
 from flickr.models import FlickrAccount, Photo, PhotoSet
-
+from flickr.use_cases import flickr_oauth_view_decorator
 
 FLICKR_KEY = getattr(settings, 'FLICKR_KEY', None)
 FLICKR_SECRET = getattr(settings, 'FLICKR_SECRET', None)
 PERMS = getattr(settings, 'FLICKR_PERMS', None)
 
-
-def oauth(request):
+@flickr_oauth_view_decorator
+def oauth(request, **extra_data):
     token = None
     api = FlickrApi(FLICKR_KEY, FLICKR_SECRET)
     url = api.auth_url(request, perms=PERMS, callback= request.build_absolute_uri(reverse('flickr_complete')) )
     return HttpResponseRedirect(url)
 
-def oauth_access(request):
+@flickr_oauth_view_decorator
+def oauth_access(request, **extra_data):
     api = FlickrApi(FLICKR_KEY, FLICKR_SECRET)
     data = api.access_token( request )
     if data:
         data = bunchify(data)
         nsid = data.oauth.user.nsid
-        fs, created = FlickrAccount.objects.get_or_create(nsid=nsid)
+        fs, created = FlickrAccount.objects.get_or_create(nsid=nsid, **extra_data)
         fs.token = data.token
         fs.username = data.oauth.user.username
         fs.full_name = data.oauth.user.fullname
@@ -37,7 +38,8 @@ def oauth_access(request):
         return HttpResponseRedirect(reverse('flickr_auth_validate', kwargs={'nsid' : fs.nsid } ) )
     raise Exception, 'Ups! No data...'
 
-def oauth_validate(request, nsid):
+@flickr_oauth_view_decorator
+def oauth_validate(request, nsid, **extra_data):
     flickr_account = FlickrAccount.objects.get(nsid=nsid)
     token = flickr_account.token
     api = FlickrApi(FLICKR_KEY, FLICKR_SECRET, token, fallback=False)

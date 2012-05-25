@@ -4,6 +4,10 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import class_prepared
+from django.contrib.auth.decorators import login_required
+from django.utils.functional import wraps
+from django.core.urlresolvers import reverse
+from django.http import HttpResponseRedirect
 
 def add_field(sender, **kwargs):
     """
@@ -13,6 +17,30 @@ def add_field(sender, **kwargs):
     if sender.__name__ == "FlickrAccount":
         user = models.OneToOneField(User)
         user.contribute_to_class(sender, 'user')
+        User.flickr_account = property(lambda u: sender.objects.get_or_create(user=u)[0])
 
 class_prepared.connect(add_field)
 
+
+def flickr_oauth_view_decorator(view):
+    @wraps(view)
+    def inner(request, *args, **kwargs):
+        user = request.user
+        if user.flickr_account.token != '' and view.__name__ != 'oauth_validate':
+            return HttpResponseRedirect(reverse('flickr_auth_validate', kwargs = {'nsid' : user.flickr_account.nsid}))
+        return view(request, user=user, *args, **kwargs)
+    return login_required(inner)
+
+
+def flickr_command_decorator(handle):
+    from flickr.models import FlickrAccount
+    @wraps(handle)
+    def inner(*args, **kwargs):
+        user_id = kwargs.get('user_id', None)
+        add_accounts = kwargs.get('add_accounts', [])
+        if user_id:
+            add_accounts.extend(list(FlickrAccount.objects.filter(user__id=user_id)))
+            kwargs.pop('account')
+            kwargs.pop('nsid')
+        return handle(add_accounts=add_accounts, *args, **kwargs)
+    return inner
