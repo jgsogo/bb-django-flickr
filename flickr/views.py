@@ -1,6 +1,7 @@
 from bunch import bunchify
 import urllib2
 import mimetypes
+from django.core.cache import cache
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
@@ -8,6 +9,7 @@ from django.http import HttpResponseRedirect, HttpResponse
 from django.shortcuts import render_to_response, get_object_or_404
 from django.template.context import RequestContext
 from django.utils import simplejson
+from django.utils.importlib import import_module
 from django.views.generic.list_detail import object_list
 from django.views.generic import View
 from flickr.api import FlickrApi, FlickrUnauthorizedCall
@@ -129,19 +131,55 @@ def method_call(request, method):
     return HttpResponse(simplejson.dumps(data))
 
 
+PIPELINE = getattr(settings, 'FLICKR_PIPELINE', None)
+
+class FlickrNotAllowed(ValueError):
+    pass
+class FlickrNotFound(ValueError):
+    pass
+
 class PhotoSource(View):
     """
         Using Django as a Pass Through Image Proxy
         http://menendez.com/blog/using-django-as-pass-through-image-proxy/
     """
+    def __init__(self, *args, **kwargs):
+        super(PhotoSource, self).__init__(*args, **kwargs)
+
+    def pipeline(self, pipeline, photo, request):
+        out = {}
+        for name in pipeline:
+            mod_name, func_name = name.rsplit('.',1)
+            mod = import_module(mod_name)
+            func = getattr(mod, func_name, None)
+            if callable(func):
+                result = func(photo, request, **out) or {}
+                if isinstance(result, dict):
+                    out.update(result)
+                else:
+                    return result
+        return out
+
     def get(self, request, *args, **kwargs):
         try:
             photo = Photo.objects.filter(flickr_id=self.kwargs['flickr_id'])[0]
-            # users, permissions, public, visible,...?
-            source_url = photo.get_source(label = self.kwargs['size_label'])
-            contents = urllib2.urlopen(source_url).read()
-            mimetype = mimetypes.guess_type(source_url)
-            response = HttpResponse(contents, mimetype=mimetype)
+
+            if PIPELINE:
+                out = self.pipeline(PIPELINE, photo, request)
+                if not isinstance(out, dict):
+                    return out
+
+            source_url = getattr(photo, '%s_url' % self.kwargs['size_label'])
+            response = cache.get(source_url)
+            if not response:
+                contents = urllib2.urlopen(source_url).read()
+                mimetype = mimetypes.guess_type(source_url)
+                response = HttpResponse(contents, mimetype=mimetype)
+                cache.set(source_url, response, 60*15)
             return response
-        except:
+        except FlickrNotFound:
             """ If photo is not found may return an 404 custom photo """
+            pass
+        except FlickrNotAllowed:
+            """ If photo is not found may return an 404 custom photo """
+            pass
