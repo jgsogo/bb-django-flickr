@@ -18,7 +18,7 @@ def unslash(url):
     return url.replace('\\/','/')
 
 
-class FlickrUserManager(models.Manager):
+class FlickrAccountManager(models.Manager):
 
     def update_from_json(self, pk, info, **kwargs):
         person = bunchify(info['person'])
@@ -33,8 +33,7 @@ class FlickrUserManager(models.Manager):
         return self.filter(pk=pk).update(**dict(user_data.items() + kwargs.items()))
 
 
-class FlickrUser(models.Model):
-    user = models.OneToOneField(User)
+class FlickrAccount(models.Model):
     flickr_id = models.CharField(max_length=50, null=True, blank=True)
     nsid = models.CharField(max_length=32, null=True, blank=True)
     username = models.CharField(max_length=64, null=True, blank=True)
@@ -50,7 +49,7 @@ class FlickrUser(models.Model):
     perms = models.CharField(max_length=32, null=True, blank=True)
     last_sync = models.DateTimeField(auto_now=True, auto_now_add=True)
 
-    objects = FlickrUserManager()
+    objects = FlickrAccountManager()
 
     class Meta:
         ordering = ['id']
@@ -61,7 +60,7 @@ class FlickrUser(models.Model):
 
 class FlickrModel(models.Model):
     flickr_id = models.CharField(unique=True, db_index=True, max_length=50)
-    user = models.ForeignKey(FlickrUser)
+    user = models.ForeignKey(FlickrAccount)
     show = models.BooleanField(default=True) #show the photo on your page?
     last_sync = models.DateTimeField(auto_now=True, auto_now_add=True)
 

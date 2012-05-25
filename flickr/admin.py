@@ -1,5 +1,5 @@
 from django.contrib import admin
-from flickr.models import Photo, FlickrUser, PhotoSet
+from flickr.models import Photo, FlickrAccount, PhotoSet
 
 
 
@@ -27,7 +27,7 @@ class PhotoSetAdmin(admin.ModelAdmin):
 admin.site.register(PhotoSet, PhotoSetAdmin)
 
 
-class FlickrUserAdmin(admin.ModelAdmin):
-    list_display = ('user', 'username', 'nsid')
-    
-admin.site.register(FlickrUser, FlickrUserAdmin)
+class FlickrAccountAdmin(admin.ModelAdmin):
+    list_display = ('username', 'nsid')
+
+admin.site.register(FlickrAccount, FlickrAccountAdmin)
