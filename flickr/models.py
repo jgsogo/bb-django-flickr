@@ -4,7 +4,6 @@ from bunch import \
     bunchify #for json.dot.notation instead of json['annoying']['dict']
 from datetime import datetime
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.utils.timezone import now
@@ -103,7 +102,7 @@ class PhotoManager(models.Manager):
     def public(self, *args, **kwargs):
         return self.visible(ispublic=1, *args, **kwargs)
 
-    def _prepare_data(self, info, sizes, flickr_user=None, exif=None, geo=None):
+    def _prepare_data(self, info, sizes, flickr_account=None, exif=None, geo=None):
         photo = bunchify(info['photo'])
         size_json = bunchify(sizes['sizes']['size'])
         photo_data = {
@@ -117,8 +116,8 @@ class PhotoManager(models.Manager):
                   'license': photo.license, 'tags': photo.tags.tag,
                   'last_sync' : now(),
                   }
-        if flickr_user:
-            photo_data['user'] = flickr_user
+        if flickr_account:
+            photo_data['user'] = flickr_account
         size_label_conv = {'Square': 'square', 'Thumbnail': 'thumb', 'Small': 'small', 'Medium 640': 'medium', 'Large': 'large', 'Original': 'ori',}
         for size in size_json:
             if size.label in size_label_conv.keys():
@@ -154,9 +153,9 @@ class PhotoManager(models.Manager):
         except KeyError:
             pass
 
-    def create_from_json(self, flickr_user, info, sizes, exif=None, geo=None, **kwargs):
+    def create_from_json(self, flickr_account, info, sizes, exif=None, geo=None, **kwargs):
         """Create a record for flickr_user"""
-        photo_data = self._prepare_data(flickr_user=flickr_user, info=info, sizes=sizes, exif=exif, geo=geo, **kwargs)
+        photo_data = self._prepare_data(flickr_account=flickr_account, info=info, sizes=sizes, exif=exif, geo=geo, **kwargs)
         tags = photo_data.pop('tags')
         obj = self.create(**dict(photo_data.items() + kwargs.items()))
         self._add_tags(obj, tags)
@@ -173,7 +172,7 @@ class PhotoManager(models.Manager):
             self._add_tags(obj, tags)
         return result
 
-    def create_or_update_from_json(self, flickr_user, info, sizes, exif=None, geo=None, **kwargs):
+    def create_or_update_from_json(self, flickr_account, info, sizes, exif=None, geo=None, **kwargs):
         """Pretty self explanatory"""
 
 
@@ -356,7 +355,7 @@ class PhotoSetManager(models.Manager):
             except Exception as e:
                 pass
 
-    def _prepare_data(self, info, photos, flickr_user=None, exif=None, geo=None):
+    def _prepare_data(self, info, photos, flickr_account=None, exif=None, geo=None):
         photoset = bunchify(info)
         photos = bunchify(photos['photoset']['photo'])
 
@@ -367,8 +366,8 @@ class PhotoSetManager(models.Manager):
                   'photos': photos,
                   'last_sync' : now(),
                   }
-        if flickr_user:
-            data['user'] = flickr_user
+        if flickr_account:
+            data['user'] = flickr_account
         return data
 
     def update_from_json(self, flickr_id, info, photos, update_photos=False, **kwargs):
@@ -382,9 +381,9 @@ class PhotoSetManager(models.Manager):
             self._add_photos(obj, photos)
         return result
 
-    def create_from_json(self, flickr_user, info, photos, **kwargs):
+    def create_from_json(self, flickr_account, info, photos, **kwargs):
         """Create a record for flickr_user"""
-        photoset_data = self._prepare_data(flickr_user=flickr_user, info=info, photos=photos, **kwargs)
+        photoset_data = self._prepare_data(flickr_account=flickr_account, info=info, photos=photos, **kwargs)
         photos = photoset_data.pop('photos')
         obj = self.create(**dict(photoset_data.items() + kwargs.items()))
         self._add_photos(obj, photos)

@@ -9,7 +9,6 @@ from django.utils import simplejson
 from django.views.generic.list_detail import object_list
 from flickr.api import FlickrApi, FlickrUnauthorizedCall
 from flickr.models import FlickrAccount, Photo, PhotoSet
-from flickr.shortcuts import get_token_for_user
 
 
 FLICKR_KEY = getattr(settings, 'FLICKR_KEY', None)
@@ -85,10 +84,10 @@ def photoset(request, flickr_id):
         )
 
 
-def method_call(request, method):
+def method_call(request, method, nsid=None):
     api = FlickrApi(FLICKR_KEY, FLICKR_SECRET)
-    if request.user.is_authenticated():
-        api.token = get_token_for_user(request.user)
+    if nsid:
+        api.token = FlickrAccount.objects.get(nsid=nsid).token
         auth = True
     else:
         auth = False
