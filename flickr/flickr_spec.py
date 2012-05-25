@@ -60,11 +60,15 @@ FLICKR_PHOTO_SIZES = {
                 'longest' : 1024,
                 'suffix' : 'b',
                 },
-    'Original' : {
+    'Original' : {  'label' : 'ori',
                     'suffix' : 'o',
                 },
     }
 
+def get_size_from_label(label):
+    for key, size_item in FLICKR_PHOTO_SIZES.items():
+        if label == size_item.get('label', None):
+            return size_item
 
 def build_photo_url(farm_id, server_id, photo_id, secret, size, format='jpg'):
     size_suffix = ''

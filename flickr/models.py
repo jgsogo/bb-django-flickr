@@ -9,7 +9,7 @@ from django.core.urlresolvers import reverse
 from django.db import models
 from django.utils.timezone import now
 from taggit.managers import TaggableManager
-from flickr.flickr_spec import build_photo_url,\
+from flickr.flickr_spec import build_photo_url, get_size_from_label, \
                                 FLICKR_PHOTO_SIZES, FLICKR_URL_PAGE, FLICKR_PHOTOS_URL,\
                                 FLICKR_PROFILE_URL, FLICKR_BUDDY_ICON, FLICKR_BUDDY_ICON_DEFAULT,\
                                 FLICKR_SHORT_PHOTO_URL, b58encode
@@ -139,9 +139,11 @@ class PhotoManager(models.Manager):
 
         if sizes:
             size_json = bunchify(sizes['sizes']['size'])
-            ref_size = size_json[-1]
-            photo_data['ratio'] = float(ref_size.width) / float(ref_size.height)
-            photo_data['max_width'] = ref_size.width
+            max_size = size_json[-1]
+            if max_size.label=='Original':
+                photo_data['ori_width'] = max_size.width
+                photo_data['ori_height'] = max_size.height
+            # \todo Do whatever to store aditional sizes in db.
         if exif:
             try:
                 photo_data['exif_camera'] = exif['photo']['camera']
@@ -211,8 +213,8 @@ class Photo(FlickrModel):
     """http://www.flickr.com/services/api/explore/flickr.photos.getSizes
         original width and height is all the data needed to compute other sizes.
     """
-    ratio = models.FloatField()
-    max_width = models.PositiveIntegerField(null=True, blank=True)
+    ori_width = models.PositiveIntegerField(null=True, blank=True)
+    ori_height = models.PositiveIntegerField(null=True, blank=True)
 
     """http://www.flickr.com/services/api/explore/flickr.photos.getExif
     Lots of data varying type and values, maybe not fully implemented."""
@@ -264,59 +266,48 @@ class Photo(FlickrModel):
     short_url = property(get_short_url)
 
     """ Sizes (source, width and height) can be computed from info already stored in the database """
-    def get_max_height(self):
-        return int(self.max_width/self.ratio)
-    max_height = property(get_max_height)
-
-    def has_size(self, size = None, label = None):
-        if not label and not size:
-            raise ValueError, 'Must be called with either size name or size label'
-
-        flickr_size = None
-        if size:
-            flickr_size = FLICKR_PHOTO_SIZES[size]
-        else:
-            for key, size_item in FLICKR_PHOTO_SIZES.items():
-                if label == size_item.get('label', None):
-                    flickr_size = size_item
-                    break
-
-        width = flickr_size.get('width', None)
-        longest = flickr_size.get('longest', None)
-        if width and self.max_width >= width:
-            return flickr_size
-        elif longest:
-            if self.max_width >= longest or self.max_height >= longest:
-                return flickr_size
-        return None
+    def _size_available(self, size):
+        try:
+            if size['label'] == 'ori':
+                return self.originalsecret != ''
+            # \todo Check if this photo has that size available ¿or not?
+            # \todo If we have stored photo sizes in database, grab it from the database
+            return True
+        except:
+            return False
 
     def get_source(self, size = None, label = None, fall_to_ori=False):
-        flickr_size = self.has_size(size, label)
-        if flickr_size:
-            return build_photo_url(self.farm, self.server, self.flickr_id, self.secret, flickr_size)
-        else:
-            if fall_to_ori:
-                return self.get_ori_source()
-            else: return None
+        if not size and label:
+            size = get_size_from_label(label)
+        if self._size_available(size) and size['label'] is not 'ori':
+            return build_photo_url(self.farm, self.server, self.flickr_id, self.secret, size)
+        elif size['label'] == 'ori' or fall_to_ori:
+            return self.get_ori_source()
+        else: return None
 
     def get_size(self, size = None, label = None, fall_to_ori=False):
-        flickr_size = self.has_size(size, label)
-        if flickr_size:
-            width = flickr_size.get('width', None)
-            height = flickr_size.get('height', None)
+        if not size and label:
+            size = get_size_from_label(label)
+        if self._size_available(size) and size['label'] is not 'ori':
+            # \todo If we have stored photo sizes, grab it from the database - Maybe properties could be different
+            width = size.get('width', None)
+            height = size.get('height', None)
             if not width or not height:
-                longest = flickr_size.get('longest', None)
-                if self.ratio>=1:
+                longest = size.get('longest', None)
+                if not self.ori_width or not self.ori_height:
+                    # \todo What to do? Not enough info to compute
+                    return None, None
+                ratio = float(self.ori_width) / float(self.ori_height)
+                if ratio >= 1:
                     width = longest
-                    height = int(width/self.ratio)
+                    height = int(width/ratio)
                 else:
                     height = longest
-                    width = int(self.ratio*height)
+                    width = int(ratio*height)
             return width, height
-        else:
-            if fall_to_ori:
-                return self.get_ori_size()
-            else: return None, None
+        elif size['label'] == 'ori' or fall_to_ori:
+            return self.ori_width, self.ori_height
+        else: return None, None
 
     def get_width(self, size = None, label = None, fall_to_ori=False):
         width, height = self.get_size(size, label, fall_to_ori)
@@ -329,19 +320,7 @@ class Photo(FlickrModel):
         if self.originalsecret:
             return build_photo_url(self.farm, self.server, self.flickr_id, self.originalsecret, FLICKR_PHOTO_SIZES['Original'], self.originalformat)
         else: return None # return source for max_size?
-    ori_url = property(get_ori_source)
-
-    def get_ori_width(self):
-        if self.originalsecret:
-            return self.max_width
-        else: return None # return sizes for max_size?
-    ori_width = property(get_ori_width)
-
-    def get_ori_height(self):
-        if self.originalsecret:
-            return int(self.max_width/self.ratio)
-        else: return None # return sizes for max_size?
-    ori_height = property(get_ori_height)
+    ori_source = property(get_ori_source)
 
     """because 'Model.get_previous_by_FOO(**kwargs) For every DateField and DateTimeField that does not have null=True'"""
     def get_next_by_date_posted(self):
@@ -419,10 +398,10 @@ Add properties to photo model in order to directly access useful data.
 """
 for key,size in FLICKR_PHOTO_SIZES.items():
     label = size.get('label', None)
-    if label:
-        setattr(Photo, '%s_url' %label, property( lambda self, key=key: self.get_source(key) ))
-        setattr(Photo, '%s_width' %label, property( lambda self, key=key: self.get_width(key) ))
-        setattr(Photo, '%s_height' %label, property( lambda self, key=key: self.get_height(key) ))
+    if label != 'ori':
+        setattr(Photo, '%s_source' %label, property( lambda self, size=size: self.get_source(size=size) ))
+        setattr(Photo, '%s_width' %label, property( lambda self, size=size: self.get_width(size=size) ))
+        setattr(Photo, '%s_height' %label, property( lambda self, size=size: self.get_height(size=size) ))
 
 
 class PhotoSetManager(models.Manager):
