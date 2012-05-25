@@ -175,7 +175,7 @@ class PhotoSource(View):
                 contents = urllib2.urlopen(source_url).read()
                 mimetype = mimetypes.guess_type(source_url)
                 response = HttpResponse(contents, mimetype=mimetype)
-                cache.set(soruce_url, response, 60*15)
+                cache.set(source_url, response, 60*15)
             return response
         except FlickrNotFound:
             """ If photo is not found may return an 404 custom photo """
