@@ -10,7 +10,7 @@ from flickr.shortcuts import get_all_photos, get_photo_details_jsons,\
 from optparse import make_option
 import datetime
 import time
-from flickr.use_cases import flickr_command_decorator
+from flickr.use_cases import flickr_sync_command_decorator
 
 class Command(BaseCommand):
 
@@ -72,7 +72,7 @@ set high value (200-500) for initial sync and big updates so we hit flickr less.
             raise CommandError, 'No FLICKR_SECRET in settings. %s' % self.help_text
         self.api = FlickrApi(self.FLICKR_KEY, self.FLICKR_SECRET)
 
-    @flickr_command_decorator
+    @flickr_sync_command_decorator
     def handle(self, add_accounts = [], *args, **options):
         t1 = time.time()
         nsid = options.get('nsid', None)

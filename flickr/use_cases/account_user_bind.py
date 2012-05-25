@@ -3,13 +3,12 @@
 
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import class_prepared
 from django.contrib.auth.decorators import login_required
 from django.utils.functional import wraps
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect
 
-def add_field(sender, **kwargs):
+def on_class_prepared(sender, **kwargs):
     """
     class_prepared signal handler that checks for the model named
     MyModel as the sender, and adds a User fk to it.
@@ -18,8 +17,6 @@ def add_field(sender, **kwargs):
         user = models.OneToOneField(User)
         user.contribute_to_class(sender, 'user')
         User.flickr_account = property(lambda u: sender.objects.get_or_create(user=u)[0])
-
-class_prepared.connect(add_field)
 
 
 def flickr_oauth_view_decorator(view):
@@ -32,7 +29,7 @@ def flickr_oauth_view_decorator(view):
     return login_required(inner)
 
 
-def flickr_command_decorator(handle):
+def flickr_sync_command_decorator(handle):
     from flickr.models import FlickrAccount
     @wraps(handle)
     def inner(*args, **kwargs):
