@@ -35,6 +35,6 @@ admin.site.register(FlickrUser, FlickrUserAdmin)
 
 if FLICKR_STORE_SIZES:
     class PhotoSizeAdmin(admin.ModelAdmin):
-        pass
+        list_display = ('photo', 'size')
 
     admin.site.register(PhotoSize, PhotoSizeAdmin)

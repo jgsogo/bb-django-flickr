@@ -145,7 +145,7 @@ class PhotoManager(models.Manager):
             if max_size.label=='Original':
                 photo_data['ori_width'] = max_size.width
                 photo_data['ori_height'] = max_size.height
-            # \todo Do whatever to store aditional sizes in db.
+            photo_data['sizes'] = size_json
         if exif:
             try:
                 photo_data['exif_camera'] = exif['photo']['camera']
@@ -169,23 +169,41 @@ class PhotoManager(models.Manager):
         except KeyError:
             pass
 
+    def _add_sizes(self, obj, sizes, override=False):
+        for size in sizes:
+            try:
+                photosize = getattr(obj, FLICKR_PHOTO_SIZES[size.label]['label'])
+                size.pop('url')
+                size.pop('label')
+                size.pop('media')
+                obj.sizes.filter(pk=photosize.pk).update(**size)
+            except:
+                pass
+
     def create_from_json(self, flickr_user, info, sizes, exif=None, geo=None, **kwargs):
         """Create a record for flickr_user"""
         photo_data = self._prepare_data(flickr_user=flickr_user, info=info, sizes=sizes, exif=exif, geo=geo, **kwargs)
         tags = photo_data.pop('tags')
+        sizes = photo_data.pop('sizes')
         obj = self.create(**dict(photo_data.items() + kwargs.items()))
         self._add_tags(obj, tags)
+        self._add_sizes(obj, sizes)
         return obj
 
-    def update_from_json(self, flickr_id, info, sizes, exif=None, geo=None, update_tags=False, **kwargs):
+    def update_from_json(self, flickr_id, info, sizes, exif=None, geo=None, update_tags=False, update_sizes=False, **kwargs):
         """Update a record with flickr_id"""
         photo_data = self._prepare_data(info=info, sizes=sizes, exif=exif, geo=geo, **kwargs)
         tags = photo_data.pop('tags')
+        sizes = photo_data.pop('sizes')
         result = self.filter(flickr_id=flickr_id).update(**dict(photo_data.items() + kwargs.items()))
-        if result == 1 and update_tags:
+        if result == 1:
             obj = self.get(flickr_id=flickr_id)
-            obj.tags.clear()
-            self._add_tags(obj, tags)
+            if update_tags:
+                obj.tags.clear()
+                self._add_tags(obj, tags)
+            if update_sizes:
+                obj.sizes.clear()
+                self._add_sizes(obj, sizes)
         return result
 
     def create_or_update_from_json(self, flickr_user, info, sizes, exif=None, geo=None, **kwargs):
@@ -364,8 +382,6 @@ if not FLICKR_STORE_SIZES:
         def _size_available(self):
             try:
                 return self.secret != ''
-                # \todo Check if this photo has that size available, or not? see: http://code.flickr.com/blog/2010/10/26/the-not-so-new-image-size-medium-640/
-                # \todo If we have stored photo sizes in database, grab it from the database
             except:
                 return False
         is_available = property(_size_available)
@@ -407,17 +423,22 @@ if not FLICKR_STORE_SIZES:
             return height
         height = property(_get_height)
 
-    """
-    class PhotoSizesProxy(object):
-        def __init__(self, photo):
-            self.photo = photo
-    """
 
     for key,size in FLICKR_PHOTO_SIZES.items():
         label = size.get('label', None)
         setattr(Photo, label, property(lambda self, size=size: PhotoSize(self, size=size)))
 
-    #setattr(Photo, 'sizes', property(lambda self: PhotoSizesProxy(photo = self)))
+
+    class PhotoSizesManagerProxy(models.Manager):
+        def __init__(self, *args, **kwargs):
+            pass
+        def contribute_to_class(self, model, name):
+            pass
+        def get_query_set(self):
+            return self.get_empty_query_set()
+        def get_empty_query_set(self):
+            return models.query.EmptyQuerySet()
+    setattr(Photo, 'sizes', property(lambda self: PhotoSizesManagerProxy()))
 
 else:
     """
