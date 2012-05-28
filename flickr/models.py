@@ -230,12 +230,6 @@ class Photo(FlickrModel):
 
     tags = TaggableManager(blank=True)
 
-    """http://www.flickr.com/services/api/explore/flickr.photos.getSizes
-        original width and height is all the data needed to compute other sizes.
-    """
-    ori_width = models.PositiveIntegerField(null=True, blank=True)
-    ori_height = models.PositiveIntegerField(null=True, blank=True)
-
     """http://www.flickr.com/services/api/explore/flickr.photos.getExif
     Lots of data varying type and values, maybe not fully implemented."""
 
@@ -284,9 +278,6 @@ class Photo(FlickrModel):
     def get_short_url(self):
         return FLICKR_SHORT_PHOTO_URL % { 'short-photo-id' : b58encode(int(self.flickr_id))}
     short_url = property(get_short_url)
-
-    """ Sizes (source, width and height) are accesses throught 'sizes' property or related model """
-
 
     """because 'Model.get_previous_by_FOO(**kwargs) For every DateField and DateTimeField that does not have null=True'"""
     def get_next_by_date_posted(self):
@@ -366,6 +357,12 @@ Photo model needs sizes property, it will depend on configuration
 """
 if not FLICKR_STORE_SIZES:
     class PhotoSize(object):
+        """
+        PhotoSize 'model' for no-sizes-storage use case. Only builds
+        urls, no info about sizes is provided
+        """
+        width = None
+        height = None
         def __init__(self, photo, size):
             self.photo = photo
             self.size = size
@@ -392,37 +389,6 @@ if not FLICKR_STORE_SIZES:
             else: return None
         source = property(_get_source)
 
-        def _get_size(self):
-            if self.is_available:
-                if self.is_ori:
-                    return self.photo.ori_width, self.photo.ori_height
-                width = self.size.get('width', None)
-                height = self.size.get('height', None)
-                if not width or not height:
-                    longest = self.size.get('longest', None)
-                    if not self.photo.ori_width or not self.photo.ori_height:
-                        # \todo What to do? Not enough info to compute, just we had stored horizontal/vertical alignment...
-                        return None, None
-                    ratio = float(self.photo.ori_width) / float(self.photo.ori_height)
-                    if ratio >= 1:
-                        width = longest
-                        height = int(width/ratio)
-                    else:
-                        height = longest
-                        width = int(ratio*height)
-                return width, height
-            else: return None, None
-
-        def _get_width(self):
-            width, height = self._get_size()
-            return width
-        width = property(_get_width)
-
-        def _get_height(self):
-            width, height = self._get_size()
-            return height
-        height = property(_get_height)
-
 
     for key,size in FLICKR_PHOTO_SIZES.items():
         label = size.get('label', None)
@@ -430,6 +396,7 @@ if not FLICKR_STORE_SIZES:
 
 
     class PhotoSizesManagerProxy(models.Manager):
+        """ Custom manager to keep compatibility with FLICKR_STORAGE_SIZES """
         def __init__(self, *args, **kwargs):
             pass
         def contribute_to_class(self, model, name):
@@ -441,24 +408,12 @@ if not FLICKR_STORE_SIZES:
     setattr(Photo, 'sizes', property(lambda self: PhotoSizesManagerProxy()))
 
 else:
-    """
-    class PhotoSizeManager(models.Manager):
-        use_for_related_fields = True
-
-    for key,size in FLICKR_PHOTO_SIZES.items():
-        label = size.get('label', None)
-        setattr(PhotoSizeManager, label, property(lambda self, label=label: self.get_query_set().get_or_create(size=label)))
-    """
-
     class PhotoSize(models.Model):
         photo = models.ForeignKey(Photo, related_name='sizes')
         size = models.CharField(max_length = 10, choices=[(v['label'], k) for k,v in FLICKR_PHOTO_SIZES.iteritems()] )
         width = models.PositiveIntegerField(null=True, blank=True)
         height = models.PositiveIntegerField(null=True, blank=True)
         source = models.URLField(null=True, blank=True)
-
-        #related = PhotoSizeManager()
-        objects = models.Manager()
 
         class Meta:
             unique_together = (('photo', 'size'),)
