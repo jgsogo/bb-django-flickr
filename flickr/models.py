@@ -3,7 +3,6 @@
 from bunch import \
     bunchify #for json.dot.notation instead of json['annoying']['dict']
 from datetime import datetime
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from django.db import models
@@ -14,7 +13,8 @@ from flickr.flickr_spec import build_photo_url, get_size_from_label, \
                                 FLICKR_PROFILE_URL, FLICKR_BUDDY_ICON, FLICKR_BUDDY_ICON_DEFAULT,\
                                 FLICKR_SHORT_PHOTO_URL, b58encode
 
-FLICKR_STORE_SIZES = getattr(settings, 'FLICKR_STORE_SIZES', False)
+from flickr.app_settings import FLICKR_STORE_SIZES
+
 
 def ts_to_dt(timestamp):
     return datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S')

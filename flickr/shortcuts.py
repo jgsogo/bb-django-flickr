@@ -1,12 +1,9 @@
 from bunch import bunchify
-from django.conf import settings
 from flickr.api import FlickrApi
 from flickr.models import FlickrUser
+from flickr.app_settings import FLICKR_KEY, FLICKR_SECRET, FLICKR_STORE_SIZES
 import time
 
-FLICKR_KEY = getattr(settings, 'FLICKR_KEY', None)
-FLICKR_SECRET = getattr(settings, 'FLICKR_SECRET', None)
-FLICKR_STORE_SIZES = getattr(settings, 'FLICKR_STORE_SIZES', False)
 
 def get_token_for_user(user):
     try:

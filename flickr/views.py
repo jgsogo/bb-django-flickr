@@ -2,7 +2,6 @@ from bunch import bunchify
 import urllib2
 import mimetypes
 from django.core.cache import cache
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, HttpResponse
@@ -15,11 +14,7 @@ from django.views.generic import View
 from flickr.api import FlickrApi, FlickrUnauthorizedCall
 from flickr.models import FlickrUser, Photo, PhotoSet
 from flickr.shortcuts import get_token_for_user
-
-
-FLICKR_KEY = getattr(settings, 'FLICKR_KEY', None)
-FLICKR_SECRET = getattr(settings, 'FLICKR_SECRET', None)
-PERMS = getattr(settings, 'FLICKR_PERMS', None)
+from flickr.app_settings import FLICKR_KEY, FLICKR_SECRET, FLICKR_APP_PERMS
 
 
 @login_required

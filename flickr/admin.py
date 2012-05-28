@@ -1,8 +1,7 @@
 from django.contrib import admin
-from django.conf import settings
 from flickr.models import Photo, FlickrUser, PhotoSet, PhotoSize
+from flickr.app_settings import FLICKR_STORE_SIZES
 
-FLICKR_STORE_SIZES = getattr(settings, 'FLICKR_STORE_SIZES', False)
 
 class PhotoAdmin(admin.ModelAdmin):
     date_hierarchy = 'date_taken'
