@@ -14,7 +14,7 @@ from django.views.generic import View
 from flickr.api import FlickrApi, FlickrUnauthorizedCall
 from flickr.models import FlickrUser, Photo, PhotoSet
 from flickr.shortcuts import get_token_for_user
-from flickr.app_settings import FLICKR_KEY, FLICKR_SECRET, FLICKR_APP_PERMS
+from flickr.app_settings import FLICKR_KEY, FLICKR_SECRET, FLICKR_APP_PERMS, FLICKR_PHOTO_PIPELINE
 
 
 @login_required
@@ -22,7 +22,7 @@ def oauth(request):
     token = get_token_for_user(request.user)
     if not token:
         api = FlickrApi(FLICKR_KEY, FLICKR_SECRET)
-        url = api.auth_url(request, perms=PERMS, callback= request.build_absolute_uri(reverse('flickr_complete')) )
+        url = api.auth_url(request, perms=FLICKR_APP_PERMS, callback= request.build_absolute_uri(reverse('flickr_complete')) )
         return HttpResponseRedirect(url)
     else:
         api = FlickrApi(FLICKR_KEY, FLICKR_SECRET, token, fallback=False)
@@ -159,8 +159,8 @@ class PhotoSource(View):
         try:
             photo = Photo.objects.filter(flickr_id=self.kwargs['flickr_id'])[0]
 
-            if PIPELINE:
-                out = self.pipeline(PIPELINE, photo, request)
+            if FLICKR_PHOTO_PIPELINE:
+                out = self.pipeline(FLICKR_PHOTO_PIPELINE, photo, request)
                 if not isinstance(out, dict):
                     return out
 
