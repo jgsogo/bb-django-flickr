@@ -69,7 +69,7 @@ class FlickrModel(models.Model):
     flickr_id = models.CharField(unique=True, db_index=True, max_length=50)
     user = models.ForeignKey(FlickrUser)
     show = models.BooleanField(default=True)  # #show the photo on your page?
-    last_sync = models.DateTimeField(auto_now=True, auto_now_add=True)
+    last_sync = models.DateTimeField(blank=True, null=True, editable=False)
 
     class Meta:
         abstract = True
@@ -126,6 +126,9 @@ class PhotoManager(models.Manager):
         """
         photo_bunch = bunchify(photo)
         photo_data = {}
+        if info and exif and geo:
+            """ Update last_sync only if all the info is retrieved from flickr """
+            photo_data.update({'last_sync' : now()})
         if info:
             """ With data returned from 'photos.getInfo' (no need of 'photo' dict)."""
             info_bunch = bunchify(info['photo'])
@@ -253,12 +256,13 @@ class PhotoManager(models.Manager):
 
     def update_from_json(self, flickr_id, photo, info=None, sizes=None, exif=None, geo=None, **kwargs):
         """Update a record with flickr_id"""
+        update_tags = kwargs.pop('update_tags', False)
         photo_data = self._prepare_data(photo=photo, info=info, exif=exif, geo=geo, **kwargs)
         tags = photo_data.pop('tags')
         result = self.filter(flickr_id=flickr_id).update(**dict(photo_data.items() + kwargs.items()))
         if result == 1:
             obj = self.get(flickr_id=flickr_id)
-            if kwargs.get('update_tags', False):
+            if update_tags:
                 obj.tags.clear()
                 self._add_tags(obj, tags)
             if kwargs.get('update_sizes', False):
