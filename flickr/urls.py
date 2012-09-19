@@ -1,5 +1,7 @@
 from django.conf.urls.defaults import patterns, url
 
+from flickr.views import Index
+
 urlpatterns = patterns('',
     url(r'^auth/$', "flickr.views.oauth", name="flickr_auth"),
     url(r'^auth/complete/$', "flickr.views.oauth_access", name="flickr_complete"),
@@ -10,5 +12,5 @@ urlpatterns = patterns('',
     url(r'^method/(?P<method>.*)/$', "flickr.views.method_call", name="flickr_method"),
     url(r'^set/(?P<flickr_id>.*)/$', "flickr.views.photoset", name="flickr_photoset"),
     url(r'^photo/(?P<flickr_id>.*)/$', "flickr.views.photo", name="flickr_photo"),
-    url(r'^$', "flickr.views.index", name="flickr_index"),
+    url(r'^$', Index.as_view(), name="flickr_index"),
 )

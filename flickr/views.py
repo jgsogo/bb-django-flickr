@@ -6,7 +6,7 @@ from django.http import HttpResponseRedirect, HttpResponse
 from django.shortcuts import render_to_response, get_object_or_404
 from django.template.context import RequestContext
 from django.utils import simplejson
-from django.views.generic.list_detail import object_list
+from django.views.generic import ListView, DetailView
 from flickr.api import FlickrApi
 from flickr.models import FlickrUser, Photo, PhotoSet
 from flickr.shortcuts import get_token_for_user
@@ -82,17 +82,16 @@ def auth(request):
     return render_to_response("flickr/auth_ok.html", {'token': fs.token, }, context_instance=RequestContext(request))
 
 
-def index(request, user_id=1):
-    photos = Photo.objects.public()
-    photosets = PhotoSet.objects.all()
-    return object_list(request,
-        queryset=photos,
-        paginate_by=10,
-        extra_context={'photosets': photosets, },
-        template_object_name='photo',
-        template_name='flickr/index.html'
-        )
+class Index(ListView):
+    queryset = Photo.objects.public()
+    paginate_by = 10
+    template_name='flickr/index.html'
 
+    def get_context_data(self, **kwargs):
+        context = super(Index, self).get_context_data(**kwargs)
+        photosets = PhotoSet.objects.all()
+        context.update({'photosets' : photosets })
+        return context
 
 def photo(request, flickr_id):
     try:
@@ -101,18 +100,17 @@ def photo(request, flickr_id):
         photo = get_object_or_404(Photo, pk=flickr_id)
     return render_to_response("flickr/photo_page.html", {'photo': photo, }, context_instance=RequestContext(request))
 
+class PhotosetView(DetailView):
+    model = PhotoSet
+    paginate_by = 10
+    template_name='flickr/index.html'
 
-def photoset(request, flickr_id):
-    photoset = get_object_or_404(PhotoSet, flickr_id=flickr_id)
-    photos = Photo.objects.public(photoset__id__in=[photoset.id, ])
-    photosets = PhotoSet.objects.all()
-    return object_list(request,
-        queryset=photos,
-        paginate_by=10,
-        extra_context={'photoset': photoset, 'photosets': photosets, },
-        template_object_name='photo',
-        template_name='flickr/index.html'
-        )
+    def get_context_data(self, **kwargs):
+        context = super(Index, self).get_context_data(**kwargs)
+        photosets = PhotoSet.objects.all()
+        photo_list = self.object.photos.public()
+        context.update({'photo_list' : photo_list, 'photosets' : photosets})
+        return context
 
 
 def method_call(request, method):
