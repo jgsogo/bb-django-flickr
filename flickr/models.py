@@ -388,7 +388,7 @@ class Photo(FlickrModel):
             photo = None
             try:
                 if photoset.photos.filter(flickr_id=self.flickr_id).exists():
-                    photo = photoset.photos.visible().filter(date_posted__gte=self.date_posted).exclude(flickr_id=self.flickr_id).order_by('date_posted', 'date_taken')[:1].get()
+                    photo = photoset.photos.visible().filter(date_taken__gte=self.date_taken).exclude(flickr_id=self.flickr_id).order_by('date_posted', 'date_taken')[:1].get()
                     print photo
             except:
                 pass
@@ -400,7 +400,7 @@ class Photo(FlickrModel):
             photo = None
             try:
                 if photoset.photos.filter(flickr_id=self.flickr_id).exists():
-                    photo = photoset.photos.visible().filter(date_posted__lte=self.date_posted).exclude(flickr_id=self.flickr_id).order_by('-date_posted', '-date_taken')[:1].get()
+                    photo = photoset.photos.visible().filter(date_taken__lte=self.date_taken).exclude(flickr_id=self.flickr_id).order_by('-date_posted', '-date_taken')[:1].get()
             except:
                 pass
             setattr(self, '_previous_in_ps%s' % photoset.flickr_id, photo)
