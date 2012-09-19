@@ -23,7 +23,7 @@ class FlickrUserManager(models.Manager):
                      'photosurl': unslash(person.photosurl._content),
                      'profileurl': unslash(person.profileurl._content),
                      'mobileurl': unslash(person.mobileurl._content),
-                     'tzoffset' : person.timezone.offset,
+                     'tzoffset' : getattr(getattr(person, 'timezone', {'offset':''}), 'offset', ''),
                      #'last_sync': now(),
                      }
         return self.filter(pk=pk).update(**dict(user_data.items() + kwargs.items()))
